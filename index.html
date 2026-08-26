@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Divisas y Operaciones</title>
+    
+    <!-- 🔗 VINCULACIÓN DEL MANIFEST DE LA PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-950 min-h-screen text-gray-800 dark:text-gray-100 flex flex-col justify-between transition-colors">
+
+    <!-- Contenedor Principal -->
+    <div id="pdfExportContainer" class="flex flex-col flex-grow">
+
+        <!-- Header / Pestañas y Filtros -->
+        <header class="bg-white dark:bg-gray-900 shadow-sm px-4 py-3 flex flex-col gap-3 transition-colors border-b dark:border-gray-800">
+            
+            <div class="flex items-center justify-between gap-2">
+                <h1 class="text-xl font-bold text-indigo-600 dark:text-indigo-400 shrink-0">💱 Inventario</h1>
+                
+                <div class="text-xs font-medium text-gray-600 dark:text-gray-300 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800/60 text-center truncate" id="currentDateDisplay">
+                </div>
+
+                <div class="no-print shrink-0">
+                    <button onclick="toggleDarkMode()" class="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2.5 py-1.5 rounded-lg border dark:border-gray-700 text-xs transition shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700" title="Cambiar Modo Día/Noche">
+                        <span id="themeIcon">🌙</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex bg-gray-100 dark:bg-gray-800/80 p-1 rounded-xl border dark:border-gray-700/60 w-full">
+                <button onclick="switchTab('operaciones')" id="tabBtnOperaciones" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm text-center">
+                    💱 Operaciones
+                </button>
+                <button onclick="switchTab('prestamos')" id="tabBtnPrestamos" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-center">
+                    🤝 Préstamos y Deudas
+                </button>
+            </div>
+
+            <div id="operationsFilters" class="flex flex-wrap items-center gap-2 pt-1 border-t dark:border-gray-800">
+                <div class="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800/60 px-3 py-1.5 rounded-xl border dark:border-gray-700/60">
+                    <span class="text-[10px] font-semibold text-gray-500 dark:text-gray-400">OPERACIÓN:</span>
+                    <select id="filterOperation" class="bg-transparent text-xs font-medium dark:text-gray-200 focus:outline-none cursor-pointer">
+                        <option value="Todos" class="dark:bg-gray-900">Todas</option>
+                        <option value="Compra" class="dark:bg-gray-900">Compra</option>
+                        <option value="Venta" class="dark:bg-gray-900">Venta</option>
+                        <option value="Gasto" class="dark:bg-gray-900">Gasto</option>
+                        <option value="Préstamo" class="dark:bg-gray-900">Préstamo</option>
+                        <option value="Deuda" class="dark:bg-gray-900">Deuda</option>
+                        <option value="Abono" class="dark:bg-gray-900">Abono</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800/60 px-3 py-1.5 rounded-xl border dark:border-gray-700/60">
+                    <span class="text-[10px] font-semibold text-gray-500 dark:text-gray-400">MONEDA:</span>
+                    <select id="filterCurrency" class="bg-transparent text-xs font-medium dark:text-gray-200 focus:outline-none cursor-pointer">
+                        <option value="Todos" class="dark:bg-gray-900">Todas</option>
+                        <option value="USD" class="dark:bg-gray-900">USD</option>
+                        <option value="EUR" class="dark:bg-gray-900">EUR</option>
+                        <option value="Libras" class="dark:bg-gray-900">Libras</option>
+                        <option value="Canad" class="dark:bg-gray-900">Canad</option>
+                        <option value="MLC" class="dark:bg-gray-900">MLC</option>
+                        <option value="Transf" class="dark:bg-gray-900">Transf</option>
+                        <option value="Clasica" class="dark:bg-gray-900">Clásica</option>
+                        <option value="Saldo" class="dark:bg-gray-900">Saldo</option>
+                        <option value="USDT" class="dark:bg-gray-900">USDT</option>
+                        <option value="Zelle" class="dark:bg-gray-900">Zelle</option>
+                        <option value="CUP" class="dark:bg-gray-900">CUP</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <!-- VISTA 1: OPERACIONES Y CAJA -->
+        <div id="viewOperations" class="flex flex-col flex-grow">
+            <section class="max-w-7xl mx-auto px-4 w-full mt-4 no-print">
+                <div class="bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border dark:border-gray-800 grid grid-cols-2 gap-3 items-end transition-colors">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">OPERACIÓN</label>
+                        <select id="opType" onchange="handleOpTypeChange()" class="w-full bg-gray-50 dark:bg-gray-800/80 border dark:border-gray-700/80 rounded-xl px-3 py-2 text-xs font-medium dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer">
+                            <option value="Compra">Compra</option>
+                            <option value="Venta">Venta</option>
+                            <option value="Gasto">Gasto</option>
+                            <option value="Préstamo">Préstamo (Te debe)</option>
+                            <option value="Deuda">Deuda (Le debes)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">MONEDA</label>
+                        <select id="opCurrency" class="w-full bg-gray-50 dark:bg-gray-800/80 border dark:border-gray-700/80 rounded-xl px-3 py-2 text-xs font-medium dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer">
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">CANTIDAD</label>
+                        <input type="number" id="opQty" step="any" placeholder="0" oninput="updateCalcTotal()" class="w-full bg-gray-50 dark:bg-gray-800/80 border dark:border-gray-700/80 rounded-xl px-3 py-2 text-xs font-medium dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                    <div id="priceContainer">
+                        <label class="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">PRECIO</label>
+                        <input type="number" id="opPrice" step="any" placeholder="0" oninput="updateCalcTotal()" class="w-full bg-gray-50 dark:bg-gray-800/80 border dark:border-gray-700/80 rounded-xl px-3 py-2 text-xs font-medium dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                    <div id="personContainer" class="hidden">
+                        <label class="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">NOMBRE / AMIGO</label>
+                        <input type="text" id="opPerson" placeholder="Ej. Juan" class="w-full bg-gray-50 dark:bg-gray-800/80 border dark:border-gray-700/80 rounded-xl px-3 py-2 text-xs font-medium dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">SUMA A ENTREGAR</label>
+                        <div class="w-full bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 rounded-xl px-3 py-2 flex items-center h-[34px] overflow-hidden">
+                            <span class="text-xs font-bold text-indigo-700 dark:text-indigo-400 truncate" id="calcTotalDisplay">$ 0.00</span>
+                        </div>
+                    </div>
+                    <div>
+                        <button onclick="addOperation()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-xl text-xs transition shadow-sm h-[34px] flex items-center justify-center">
+                            Registrar Operación
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <main class="max-w-7xl mx-auto px-4 w-full my-4 flex-grow">
+                <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border dark:border-gray-800 overflow-hidden transition-colors">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50/80 dark:bg-gray-800/50 border-b dark:border-gray-800 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="py-3 px-3">Op</th>
+                                    <th class="py-3 px-3">Moneda</th>
+                                    <th class="py-3 px-3">Cant</th>
+                                    <th class="py-3 px-3">Detalle / Precio</th>
+                                    <th class="py-3 px-3">Total</th>
+                                    <th class="py-3 px-2 text-center no-print">🗑️</th>
+                                </tr>
+                            </thead>
+                            <tbody id="operationsTableBody" class="divide-y divide-gray-100 dark:divide-gray-800/60 text-xs">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+
+            <section class="max-w-7xl mx-auto px-4 w-full mb-4">
+                <div class="grid grid-cols-6 gap-3" id="inventoryCardsContainer">
+                </div>
+            </section>
+        </div>
+
+        <!-- VISTA 2: PRÉSTAMOS Y DEUDAS -->
+        <div id="viewPrestamos" class="flex flex-col flex-grow hidden px-4 max-w-7xl mx-auto w-full my-4">
+            <div class="mb-4">
+                <h2 class="text-base font-bold text-gray-800 dark:text-gray-100">Control de Amigos y Acreedores</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Administra lo que te deben y lo que debes con actualización en tiempo real.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" id="loansCardsContainer">
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Barra Inferior -->
+    <footer class="bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-inner px-3 py-3 transition-colors">
+        <div class="max-w-7xl mx-auto flex flex-col gap-2">
+            <div class="grid grid-cols-2 gap-2 items-center bg-gray-50 dark:bg-gray-800/40 p-2 rounded-2xl border dark:border-gray-800/80">
+                <div class="flex items-center gap-1 overflow-hidden">
+                    <span class="text-gray-500 dark:text-gray-400 font-semibold text-[11px] shrink-0">INICIO:</span>
+                    <div class="relative flex items-center w-full">
+                        <span class="absolute left-2.5 text-blue-600 dark:text-blue-400 font-bold text-xs">$</span>
+                        <input type="text" id="initialCapitalInput" value="0" oninput="handleInitialInput(this)" class="w-full bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl pl-6 pr-2 py-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 text-left focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-1 overflow-hidden text-right pr-1">
+                    <span class="text-gray-500 dark:text-gray-400 font-semibold text-[11px] shrink-0">TOTAL:</span> 
+                    <span id="grandTotalDisplay" class="font-bold text-rose-600 dark:text-rose-400 text-xs sm:text-sm truncate">$ 0</span>
+                </div>
+            </div>
+            
+            <div onclick="openProfitModal()" class="text-center bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800/70 py-1.5 rounded-2xl border dark:border-gray-800/80 cursor-pointer transition shadow-sm group">
+                <span class="text-gray-500 dark:text-gray-400 font-medium text-xs">GANANCIA:</span> 
+                <span id="totalProfitDisplay" class="font-bold text-emerald-600 dark:text-emerald-400 text-sm">$ 0.00</span>
+                <span class="text-[10px] text-indigo-500 dark:text-indigo-400 ml-1 font-semibold group-hover:underline">Ver detalle 🔍</span>
+            </div>
+
+            <div class="flex gap-2 pt-0.5 no-print">
+                <button onclick="exportShiftHTML()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm shadow transition flex items-center justify-center gap-2">
+                    📄 Exportar HTML
+                </button>
+                <button onclick="clearAllData()" class="w-12 bg-gray-100 dark:bg-gray-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 border border-gray-200 dark:border-gray-700 hover:border-rose-300 dark:hover:border-rose-700 rounded-xl text-base shadow-sm transition flex items-center justify-center shrink-0" title="Limpiar Todo">
+                    🗑️
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODALES -->
+    <div id="detailModal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+        <div class="bg-gray-900 rounded-3xl shadow-2xl max-w-sm w-full p-6 relative border border-gray-800 text-gray-100">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-800 pb-3">
+                <h3 id="modalTitle" class="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">🚀 DETALLE</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white font-bold text-lg w-7 h-7 flex items-center justify-center rounded-full bg-gray-800/60 hover:bg-gray-800 transition">&times;</button>
+            </div>
+            <div class="space-y-3 text-xs max-h-[60vh] overflow-y-auto pr-1" id="modalContent">
+            </div>
+            <div class="mt-6 pt-3 border-t border-gray-800">
+                <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl transition shadow-lg text-xs">
+                    Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="profitModal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+        <div class="bg-gray-900 rounded-3xl shadow-2xl max-w-lg w-full p-6 relative border border-gray-800 text-gray-100">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-800 pb-3">
+                <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">📊 Desglose de Ganancias</h3>
+                <button onclick="closeProfitModal()" class="text-gray-400 hover:text-white font-bold text-lg w-7 h-7 flex items-center justify-center rounded-full bg-gray-800/60 hover:bg-gray-800 transition">&times;</button>
+            </div>
+            <div class="space-y-2 text-xs max-h-[60vh] overflow-y-auto pr-1" id="profitModalContent">
+            </div>
+            <div class="mt-6 pt-3 border-t border-gray-800">
+                <button onclick="closeProfitModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl transition shadow-lg text-xs">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="personModal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+        <div class="bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full p-6 relative border border-gray-800 text-gray-100">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-800 pb-3">
+                <h3 id="personModalTitle" class="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">🤝 Perfil de Deudor</h3>
+                <button onclick="closePersonModal()" class="text-gray-400 hover:text-white font-bold text-lg w-7 h-7 flex items-center justify-center rounded-full bg-gray-800/60 hover:bg-gray-800 transition">&times;</button>
+            </div>
+            <div class="space-y-4 text-xs max-h-[60vh] overflow-y-auto pr-1" id="personModalContent">
+            </div>
+            <div class="mt-6 pt-3 border-t border-gray-800 flex justify-end">
+                <button onclick="closePersonModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2 px-4 rounded-xl transition text-xs">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación Estilizado -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+        <div class="bg-gray-900 rounded-3xl shadow-2xl max-w-sm w-full p-6 relative border border-gray-800 text-gray-100">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-800 pb-3">
+                <h3 id="confirmModalTitle" class="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5">⚠️ Confirmación</h3>
+                <button onclick="closeConfirmModal(false)" class="text-gray-400 hover:text-white font-bold text-lg w-7 h-7 flex items-center justify-center rounded-full bg-gray-800/60 hover:bg-gray-800 transition">&times;</button>
+            </div>
+            <p id="confirmModalText" class="text-xs text-gray-300 leading-relaxed mb-6"></p>
+            <div class="flex gap-2 pt-2 border-t border-gray-800">
+                <button onclick="closeConfirmModal(false)" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2.5 rounded-xl transition text-xs">
+                    Cancelar
+                </button>
+                <button id="confirmModalOkBtn" onclick="closeConfirmModal(true)" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2.5 rounded-xl transition shadow-lg text-xs">
+                    Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="customToast" class="fixed top-5 right-5 z-[70] transform transition-all duration-300 translate-x-[150%] flex items-center bg-gray-900 border-l-4 rounded-xl shadow-2xl p-4 min-w-[250px]">
+        <div id="toastIcon" class="mr-3 text-xl"></div>
+        <div id="toastText" class="text-xs font-semibold text-gray-100"></div>
+    </div>
+
+    <script>
+        // 🔗 REGISTRO DEL SERVICE WORKER (sw.js)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
+                    .catch(err => console.log('Error al registrar el Service Worker:', err));
+            });
+        }
+
+        const currencies = ['USD', 'EUR', 'Libras', 'Canad', 'MLC', 'Transf', 'Clasica', 'Saldo', 'USDT', 'Zelle'];
+
+        let operations = JSON.parse(localStorage.getItem('operations')) || [];
+        let initialCapital = parseFloat(localStorage.getItem('initialCapital')) || 0;
+        let loans = JSON.parse(localStorage.getItem('loans')) || {}; 
+        
+        let defaultInventory = {};
+        currencies.forEach(c => {
+            defaultInventory[c] = { qty: 0, totalCost: 0, avgPrice: 0, boughtToday: 0, soldTodayQty: 0 };
+        });
+
+        let inventory = JSON.parse(localStorage.getItem('inventory')) || defaultInventory;
+
+        currencies.forEach(c => {
+            if (inventory[c]) {
+                if (inventory[c].boughtToday === undefined) inventory[c].boughtToday = 0;
+                if (inventory[c].soldTodayQty === undefined) inventory[c].soldTodayQty = 0;
+            }
+        });
+
+        let confirmResolve = null;
+
+        function showCustomConfirm(title, message, confirmText = "Aceptar", isDanger = true) {
+            return new Promise((resolve) => {
+                confirmResolve = resolve;
+                document.getElementById('confirmModalTitle').innerText = title;
+                document.getElementById('confirmModalText').innerHTML = message.replace(/\n/g, '<br>');
+                
+                const okBtn = document.getElementById('confirmModalOkBtn');
+                okBtn.innerText = confirmText;
+                if (isDanger) {
+                    okBtn.className = "flex-1 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2.5 rounded-xl transition shadow-lg text-xs";
+                } else {
+                    okBtn.className = "flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl transition shadow-lg text-xs";
+                }
+
+                const modal = document.getElementById('confirmModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            });
+        }
+
+        function closeConfirmModal(result) {
+            const modal = document.getElementById('confirmModal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            if (confirmResolve) {
+                confirmResolve(result);
+                confirmResolve = null;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const todayStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+            document.getElementById('currentDateDisplay').innerText = todayStr;
+            
+            document.getElementById('initialCapitalInput').value = initialCapital ? initialCapital.toLocaleString('en-US') : '0';
+            
+            document.getElementById('filterOperation').addEventListener('change', render);
+            document.getElementById('filterCurrency').addEventListener('change', render);
+
+            if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                updateThemeIcon(true);
+            } else {
+                updateThemeIcon(false);
+            }
+
+            handleOpTypeChange();
+            render();
+        });
+
+        function updateCalcTotal() {
+            const type = document.getElementById('opType').value;
+            const qty = parseFloat(document.getElementById('opQty').value) || 0;
+            let total = 0;
+
+            if (type === 'Compra' || type === 'Venta') {
+                const price = parseFloat(document.getElementById('opPrice').value) || 0;
+                total = qty * price;
+            } else {
+                total = qty;
+            }
+
+            document.getElementById('calcTotalDisplay').innerText = `$ ${total.toLocaleString('en-US', {maximumFractionDigits: 2})}`;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('customToast');
+            const icon = document.getElementById('toastIcon');
+            const text = document.getElementById('toastText');
+
+            text.innerText = message;
+            
+            if (type === 'error') {
+                toast.classList.remove('border-emerald-500');
+                toast.classList.add('border-rose-500');
+                icon.innerText = '⚠️';
+                icon.classList.remove('text-emerald-500');
+                icon.classList.add('text-rose-500');
+            } else {
+                toast.classList.remove('border-rose-500');
+                toast.classList.add('border-emerald-500');
+                icon.innerText = '✓';
+                icon.classList.remove('text-rose-500');
+                icon.classList.add('text-emerald-500');
+            }
+
+            toast.classList.remove('translate-x-[150%]');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-[150%]');
+            }, 3000);
+        }
+
+        function getAvailableCUP() {
+            let totalPurchases = operations.filter(op => op.type === 'Compra').reduce((acc, op) => acc + op.total, 0);
+            let totalSales = operations.filter(op => op.type === 'Venta').reduce((acc, op) => acc + op.total, 0);
+            let totalExpensesCUP = operations.filter(op => op.currency === 'CUP' && op.type === 'Gasto').reduce((acc, op) => acc + op.total, 0);
+            let totalLoansCUP = operations.filter(op => op.currency === 'CUP' && op.type === 'Préstamo').reduce((acc, op) => acc + op.total, 0);
+            let totalDebtsCUP = operations.filter(op => op.currency === 'CUP' && op.type === 'Deuda').reduce((acc, op) => acc + op.total, 0);
+            
+            let abonosCUPNet = 0;
+            operations.filter(op => op.currency === 'CUP' && op.type === 'Abono').forEach(op => {
+                abonosCUPNet += op.totalImpact || 0; 
+            });
+
+            return initialCapital - totalPurchases + totalSales - totalExpensesCUP - totalLoansCUP + totalDebtsCUP + abonosCUPNet;
+        }
+
+        function switchTab(tab) {
+            const btnOp = document.getElementById('tabBtnOperaciones');
+            const btnPr = document.getElementById('tabBtnPrestamos');
+            const viewOp = document.getElementById('viewOperations');
+            const viewPr = document.getElementById('viewPrestamos');
+            const filters = document.getElementById('operationsFilters');
+
+            if (tab === 'operaciones') {
+                btnOp.className = "flex-1 py-1.5 rounded-lg text-xs font-bold transition bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm text-center";
+                btnPr.className = "flex-1 py-1.5 rounded-lg text-xs font-bold transition text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-center";
+                viewOp.classList.remove('hidden');
+                viewPr.classList.add('hidden');
+                filters.classList.remove('hidden');
+            } else {
+                btnPr.className = "flex-1 py-1.5 rounded-lg text-xs font-bold transition bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm text-center";
+                btnOp.className = "flex-1 py-1.5 rounded-lg text-xs font-bold transition text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-center";
+                viewPr.classList.remove('hidden');
+                viewOp.classList.add('hidden');
+                filters.classList.add('hidden');
+                renderLoans();
+            }
+        }
+
+        function handleOpTypeChange() {
+            const type = document.getElementById('opType').value;
+            const priceCont = document.getElementById('priceContainer');
+            const personCont = document.getElementById('personContainer');
+            const currencySelect = document.getElementById('opCurrency');
+
+            const currentSelectedCurrency = currencySelect.value;
+            currencySelect.innerHTML = '';
+
+            let availableCurrencies = [...currencies];
+            if (type === 'Préstamo' || type === 'Deuda') {
+                availableCurrencies.push('CUP');
+                priceCont.classList.add('hidden');
+                personCont.classList.remove('hidden');
+            } else if (type === 'Gasto') {
+                availableCurrencies.push('CUP');
+                priceCont.classList.add('hidden');
+                personCont.classList.add('hidden');
+            } else {
+                priceCont.classList.remove('hidden');
+                personCont.classList.add('hidden');
+            }
+
+            availableCurrencies.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.className = "dark:bg-gray-900";
+                opt.innerText = c;
+                if (c === currentSelectedCurrency) opt.selected = true;
+                currencySelect.appendChild(opt);
+            });
+
+            updateCalcTotal(); 
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            html.classList.toggle('dark');
+            const isDark = html.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            document.getElementById('themeIcon').innerText = isDark ? '☀️' : '🌙';
+        }
+
+        function saveData() {
+            localStorage.setItem('operations', JSON.stringify(operations));
+            localStorage.setItem('inventory', JSON.stringify(inventory));
+            localStorage.setItem('initialCapital', initialCapital);
+            localStorage.setItem('loans', JSON.stringify(loans));
+        }
+
+        function handleInitialInput(input) {
+            let rawValue = input.value.replace(/[^0-9]/g, '');
+            if (rawValue === '') rawValue = '0';
+            
+            initialCapital = parseFloat(rawValue);
+            input.value = Number(rawValue).toLocaleString('en-US');
+            
+            saveData();
+            render();
+        }
+
+        function addOperation() {
+            const type = document.getElementById('opType').value;
+            const currency = document.getElementById('opCurrency').value;
+            const qty = parseFloat(document.getElementById('opQty').value);
+
+            if (isNaN(qty) || qty <= 0) {
+                showToast('Por favor ingrese una cantidad válida.', 'error');
+                return;
+            }
+
+            let price = 0;
+            let total = 0;
+            let profitGenerated = 0;
+            let costOfSold = 0;
+            let person = '';
+            let loanAvgPrice = 0;
+
+            if (currency !== 'CUP' && !inventory[currency]) {
+                inventory[currency] = { qty: 0, totalCost: 0, avgPrice: 0, boughtToday: 0, soldTodayQty: 0 };
+            }
+            let inv = inventory[currency];
+
+            if (type === 'Préstamo' || type === 'Deuda') {
+                person = document.getElementById('opPerson').value.trim();
+                if (!person) {
+                    showToast('Por favor ingrese el nombre de la persona.', 'error');
+                    return;
+                }
+                total = qty;
+
+                if (type === 'Préstamo') {
+                    if (currency === 'CUP') {
+                        const availableCUP = getAvailableCUP();
+                        if (availableCUP < qty) {
+                            showToast(`Monto insuficiente en CUP para el préstamo. Disponible: $ ${availableCUP.toLocaleString('en-US')}`, 'error');
+                            return;
+                        }
+                    } else {
+                        if (inv.qty < qty) {
+                            showToast(`Saldo insuficiente de ${currency}. Disponible: ${inv.qty.toLocaleString('en-US')}`, 'error');
+                            return;
+                        }
+                        loanAvgPrice = inv.avgPrice; 
+                        inv.qty -= qty;
+                        if (inv.qty < 0) inv.qty = 0;
+                        inv.totalCost = inv.qty * inv.avgPrice;
+                    }
+
+                    if (!loans[person]) loans[person] = {};
+                    let existing = loans[person][currency];
+                    let currentLoanQty = 0;
+                    let currentLoanPrice = loanAvgPrice;
+
+                    if (typeof existing === 'object' && existing !== null) {
+                        currentLoanQty = existing.qty;
+                        let totalQ = currentLoanQty + qty;
+                        let totalC = (currentLoanQty * existing.avgPrice) + (qty * loanAvgPrice);
+                        currentLoanPrice = totalQ > 0 ? totalC / totalQ : loanAvgPrice;
+                    } else if (typeof existing === 'number') {
+                        currentLoanQty = existing;
+                        let totalQ = currentLoanQty + qty;
+                        let totalC = (currentLoanQty * loanAvgPrice) + (qty * loanAvgPrice);
+                        currentLoanPrice = totalQ > 0 ? totalC / totalQ : loanAvgPrice;
+                    }
+
+                    loans[person][currency] = {
+                        qty: currentLoanQty + qty,
+                        avgPrice: currency === 'CUP' ? 0 : currentLoanPrice
+                    };
+
+                } else if (type === 'Deuda') {
+                    if (currency !== 'CUP') {
+                        if (inv.qty <= 0 || inv.avgPrice === 0) {
+                            let lastBuyOp = operations.slice().reverse().find(o => o.currency === currency && o.type === 'Compra' && o.price > 0);
+                            inv.avgPrice = lastBuyOp ? lastBuyOp.price : 0;
+                        }
+                        loanAvgPrice = inv.avgPrice;
+                        inv.qty += qty;
+                        inv.totalCost = inv.qty * inv.avgPrice;
+                    }
+
+                    if (!loans[person]) loans[person] = {};
+                    let existing = loans[person][currency];
+                    let currentLoanQty = 0;
+                    if (typeof existing === 'object' && existing !== null) {
+                        currentLoanQty = existing.qty;
+                    } else if (typeof existing === 'number') {
+                        currentLoanQty = existing;
+                    }
+
+                    loans[person][currency] = {
+                        qty: currentLoanQty - qty,
+                        avgPrice: currency === 'CUP' ? 0 : loanAvgPrice
+                    };
+                }
+            } else if (type === 'Gasto') {
+                total = qty;
+                profitGenerated = -qty;
+
+                if (currency === 'CUP') {
+                    const availableCUP = getAvailableCUP();
+                    if (availableCUP < qty) {
+                        showToast(`Monto insuficiente en CUP para el gasto. Disponible: $ ${availableCUP.toLocaleString('en-US')}`, 'error');
+                        return;
+                    }
+                } else {
+                    if (inv.qty < qty) {
+                        showToast(`Saldo insuficiente de ${currency}. Disponible: ${inv.qty.toLocaleString('en-US')}`, 'error');
+                        return;
+                    }
+                    inv.qty -= qty;
+                    if (inv.qty < 0) inv.qty = 0;
+                    inv.totalCost = inv.qty * inv.avgPrice;
+                }
+            } else {
+                price = parseFloat(document.getElementById('opPrice').value);
+                if (isNaN(price) || price < 0) {
+                    showToast('Por favor ingrese un precio válido.', 'error');
+                    return;
+                }
+                total = qty * price;
+
+                if (type === 'Compra') {
+                    const availableCUP = getAvailableCUP();
+                    if (availableCUP < total) {
+                        showToast(`Monto insuficiente en CUP para realizar la compra. Disponible: $ ${availableCUP.toLocaleString('en-US')}`, 'error');
+                        return;
+                    }
+
+                    const newTotalQty = inv.qty + qty;
+                    const newTotalCost = inv.totalCost + total;
+                    inv.avgPrice = newTotalQty > 0 ? newTotalCost / newTotalQty : 0;
+                    inv.qty = newTotalQty;
+                    inv.totalCost = newTotalCost;
+                    inv.boughtToday = (inv.boughtToday || 0) + qty;
+                } else if (type === 'Venta') {
+                    if (inv.qty < qty) {
+                        showToast(`Saldo insuficiente de ${currency} para vender. Disponible: ${inv.qty.toLocaleString('en-US')}`, 'error');
+                        return;
+                    }
+
+                    costOfSold = qty * inv.avgPrice;
+                    profitGenerated = total - costOfSold;
+
+                    inv.qty -= qty;
+                    if (inv.qty <= 0) {
+                        inv.qty = 0;
+                        inv.avgPrice = 0;
+                        inv.totalCost = 0;
+                    } else {
+                        inv.totalCost = inv.qty * inv.avgPrice;
+                    }
+                    inv.soldTodayQty = (inv.soldTodayQty || 0) + qty;
+                }
+            }
+
+            const operation = {
+                id: Date.now(),
+                type,
+                currency,
+                qty,
+                price,
+                total,
+                profit: profitGenerated,
+                avgPriceUsed: (type === 'Venta') ? inv.avgPrice : 0,
+                loanAvgPrice: loanAvgPrice,
+                costOfSold: costOfSold,
+                person
+            };
+
+            operations.unshift(operation);
+            saveData();
+            render();
+
+            document.getElementById('opQty').value = '';
+            document.getElementById('opPrice').value = '';
+            document.getElementById('opPerson').value = '';
+            
+            updateCalcTotal();
+            showToast('Operación registrada exitosamente.', 'success');
+        }
+
+        function deleteOperation(id) {
+    // 1. Encontrar la operación exacta a eliminar
+    const opIndex = operations.findIndex(o => o.id === id);
+    if (opIndex === -1) return;
+    const op = operations[opIndex];
+
+    // 2. Revertir el efecto en el Inventario (Si no es CUP)
+    if (op.currency !== 'CUP') {
+        let inv = inventory[op.currency];
+        if (inv) {
+            if (op.type === 'Compra') {
+                inv.qty -= op.qty;
+                inv.totalCost -= op.total;
+                inv.boughtToday = Math.max(0, (inv.boughtToday || 0) - op.qty);
+                inv.avgPrice = inv.qty > 0 ? inv.totalCost / inv.qty : 0;
+            } else if (op.type === 'Venta') {
+                inv.qty += op.qty;
+                inv.soldTodayQty = Math.max(0, (inv.soldTodayQty || 0) - op.qty);
+                inv.totalCost += op.costOfSold || (op.qty * (op.avgPriceUsed || inv.avgPrice));
+            } else if (op.type === 'Gasto' || op.type === 'Préstamo') {
+                // Gasto y Préstamo restaron del inventario, los devolvemos
+                inv.qty += op.qty;
+                inv.totalCost += op.qty * inv.avgPrice;
+            } else if (op.type === 'Deuda') {
+                // La Deuda sumó al inventario, la restamos
+                inv.qty -= op.qty;
+                inv.totalCost -= op.qty * inv.avgPrice;
+            }
+
+            // Seguridad para evitar números negativos por errores de redondeo
+            if (inv.qty <= 0) {
+                inv.qty = 0;
+                inv.totalCost = 0;
+                inv.avgPrice = 0;
+            }
+        }
+    }
+
+    // 3. Revertir el efecto en Préstamos, Deudas y Abonos
+    if (op.type === 'Préstamo' || op.type === 'Deuda' || op.type === 'Abono') {
+        let personName = op.person.replace(' (Abono)', '');
+        if (!loans[personName]) loans[personName] = {};
+        
+        let curLoan = loans[personName][op.currency];
+        let currentQty = 0;
+        let currentAvg = op.loanAvgPrice || 0;
+
+        if (typeof curLoan === 'object' && curLoan !== null) {
+            currentQty = curLoan.qty;
+            currentAvg = curLoan.avgPrice || currentAvg;
+        } else if (typeof curLoan === 'number') {
+            currentQty = curLoan;
+        }
+
+        if (op.type === 'Préstamo') {
+            currentQty -= op.qty; // Deshacer "Te debe"
+        } else if (op.type === 'Deuda') {
+            currentQty += op.qty; // Deshacer "Le debes"
+        } else if (op.type === 'Abono') {
+            // Si fue un abono, determinamos si nos pagaron o si pagamos nosotros
+            let isCobro = true;
+            if (op.currency === 'CUP') {
+                isCobro = op.totalImpact > 0;
+            } else {
+                isCobro = currentQty >= 0; // Deducción lógica para moneda extranjera
+            }
+
+            if (isCobro) {
+                currentQty += op.qty; // Restaurar la deuda a nuestro favor
+                if (op.currency !== 'CUP' && inventory[op.currency]) {
+                    inventory[op.currency].qty = Math.max(0, inventory[op.currency].qty - op.qty);
+                }
+            } else {
+                currentQty -= op.qty; // Restaurar lo que nosotros debíamos
+                if (op.currency !== 'CUP' && inventory[op.currency]) {
+                    inventory[op.currency].qty += op.qty;
+                }
+            }
+        }
+
+        // Si el saldo con esa persona queda en 0, borramos su registro
+        if (Math.abs(currentQty) < 0.001) {
+            delete loans[personName][op.currency];
+            if (Object.keys(loans[personName]).length === 0) delete loans[personName];
+        } else {
+            loans[personName][op.currency] = { qty: currentQty, avgPrice: currentAvg };
+        }
+    }
+
+    // 4. Eliminar la operación del historial (Esto arregla la caja de CUP automáticamente)
+    operations.splice(opIndex, 1);
+    
+    // 5. Guardar datos y actualizar la pantalla
+    saveData();
+    render();
+    
+    // Solo renderizar préstamos si existen en pantalla
+    if (document.getElementById('viewPrestamos') && !document.getElementById('viewPrestamos').classList.contains('hidden')) {
+        renderLoans();
+    }
+    
+    showToast('Operación eliminada.', 'success');
+}
+
+
+        function recalculateInventoryFromOperations() {
+            currencies.forEach(c => {
+                inventory[c] = { qty: 0, totalCost: 0, avgPrice: 0, boughtToday: 0, soldTodayQty: 0 };
+            });
+            loans = {};
+
+            const sortedOps = [...operations].reverse();
+            sortedOps.forEach((op, index) => {
+                if (op.currency !== 'CUP' && !inventory[op.currency]) {
+                    inventory[op.currency] = { qty: 0, totalCost: 0, avgPrice: 0, boughtToday: 0, soldTodayQty: 0 };
+                }
+                let inv = inventory[op.currency];
+
+                if (op.type === 'Compra') {
+                    inv.qty += op.qty;
+                    inv.totalCost += op.total;
+                    inv.avgPrice = inv.qty > 0 ? inv.totalCost / inv.qty : 0;
+                    inv.boughtToday += op.qty;
+                } else if (op.type === 'Venta') {
+                    const costOfSold = op.qty * inv.avgPrice;
+                    op.profit = op.total - costOfSold;
+                    op.avgPriceUsed = inv.avgPrice;
+                    op.costOfSold = costOfSold;
+
+                    inv.qty -= op.qty;
+                    if (inv.qty <= 0) {
+                        inv.qty = 0;
+                        inv.avgPrice = 0;
+                        inv.totalCost = 0;
+                    } else {
+                        inv.totalCost = inv.qty * inv.avgPrice;
+                    }
+                    inv.soldTodayQty += op.qty;
+                } else if (op.type === 'Gasto') {
+                    op.profit = -op.qty;
+                    if (op.currency !== 'CUP' && inv) {
+                        inv.qty -= op.qty;
+                        if (inv.qty < 0) inv.qty = 0;
+                        inv.totalCost = inv.qty * inv.avgPrice;
+                    }
+                } else if (op.type === 'Préstamo') {
+                    let loanPrice = op.loanAvgPrice || (inv ? inv.avgPrice : 0);
+                    if (!loans[op.person]) loans[op.person] = {};
+                    let existing = loans[op.person][op.currency];
+                    let currentQ = 0, currentP = loanPrice;
+
+                    if (typeof existing === 'object' && existing !== null) {
+                        currentQ = existing.qty;
+                        let totalQ = currentQ + op.qty;
+                        let totalC = (currentQ * existing.avgPrice) + (op.qty * loanPrice);
+                        currentP = totalQ > 0 ? totalC / totalQ : loanPrice;
+                    } else if (typeof existing === 'number') {
+                        currentQ = existing;
+                        let totalQ = currentQ + op.qty;
+                        let totalC = (currentQ * loanPrice) + (op.qty * loanPrice);
+                        currentP = totalQ > 0 ? totalC / totalQ : loanPrice;
+                    }
+
+                    loans[op.person][op.currency] = {
+                        qty: currentQ + op.qty,
+                        avgPrice: op.currency === 'CUP' ? 0 : currentP
+                    };
+
+                    if (op.currency !== 'CUP' && inv) {
+                        inv.qty -= op.qty;
+                        if (inv.qty < 0) inv.qty = 0;
+                        inv.totalCost = inv.qty * inv.avgPrice;
+                    }
+                } else if (op.type === 'Deuda') {
+                    if (op.currency !== 'CUP' && inv) {
+                        if (inv.qty <= 0 || inv.avgPrice === 0) {
+                            let lastBuyOp = sortedOps.slice(0, index).reverse().find(o => o.currency === op.currency && o.type === 'Compra' && o.price > 0);
+                            inv.avgPrice = lastBuyOp ? lastBuyOp.price : 0;
+                        }
+                        inv.qty += op.qty;
+                        inv.totalCost = inv.qty * inv.avgPrice;
+                    }
+
+                    if (!loans[op.person]) loans[op.person] = {};
+                    let existing = loans[op.person][op.currency];
+                    let currentQ = 0;
+                    if (typeof existing === 'object' && existing !== null) currentQ = existing.qty;
+                    else if (typeof existing === 'number') currentQ = existing;
+
+                    loans[op.person][op.currency] = {
+                        qty: currentQ - op.qty,
+                        avgPrice: op.currency === 'CUP' ? 0 : (inv ? inv.avgPrice : 0)
+                    };
+                } else if (op.type === 'Abono') {
+                    const cleanPerson = op.person.replace(' (Abono)', '');
+                    if (!loans[cleanPerson]) loans[cleanPerson] = {};
+                    let loanEntry = loans[cleanPerson][op.currency];
+                    let currentQ = 0;
+                    let loanPrice = 0;
+
+                    if (typeof loanEntry === 'object' && loanEntry !== null) {
+                        currentQ = loanEntry.qty;
+                        loanPrice = loanEntry.avgPrice;
+                    } else if (typeof loanEntry === 'number') {
+                        currentQ = loanEntry;
+                    }
+
+                    if (currentQ > 0) {
+                        let payQty = Math.min(op.qty, currentQ);
+                        loanEntry.qty -= payQty;
+
+                        if (op.currency !== 'CUP' && inv) {
+                            inv.qty += payQty;
+                            inv.totalCost += payQty * loanPrice;
+                            inv.avgPrice = inv.qty > 0 ? inv.totalCost / inv.qty : 0;
+                        }
+                    } else if (currentQ < 0) {
+                        let absBal = Math.abs(currentQ);
+                        let payQty = Math.min(op.qty, absBal);
+                        loanEntry.qty += payQty;
+
+                        if (op.currency !== 'CUP' && inv) {
+                            inv.qty -= payQty;
+                            if (inv.qty < 0) inv.qty = 0;
+                            inv.totalCost = inv.qty * inv.avgPrice;
+                        }
+                    }
+
+                    if (loanEntry.qty === 0) delete loans[cleanPerson][op.currency];
+                    if (Object.keys(loans[cleanPerson]).length === 0) delete loans[cleanPerson];
+                }
+            });
+        }
+
+        function render() {
+            const filterOp = document.getElementById('filterOperation').value;
+            const filterCur = document.getElementById('filterCurrency').value;
+
+            const tbody = document.getElementById('operationsTableBody');
+            tbody.innerHTML = '';
+
+            let filteredOps = operations.filter(op => {
+                const matchOp = filterOp === 'Todos' || op.type === filterOp;
+                const matchCur = filterCur === 'Todos' || op.currency === filterCur;
+                return matchOp && matchCur;
+            });
+
+            if (filteredOps.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-gray-400">No hay operaciones registradas</td></tr>`;
+            } else {
+                filteredOps.forEach(op => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition';
+                    
+                    let badgeColor = 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300';
+                    let shortType = op.type;
+                    let detailText = op.price ? op.price.toLocaleString('en-US', {maximumFractionDigits: 2}) : '';
+
+                    if (op.type === 'Compra') {
+                        badgeColor = 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300';
+                        shortType = 'Comp';
+                    } else if (op.type === 'Venta') {
+                        badgeColor = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300';
+                        shortType = 'Vent';
+                    } else if (op.type === 'Gasto') {
+                        badgeColor = 'bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300';
+                        shortType = 'Gasto';
+                    } else if (op.type === 'Préstamo') {
+                        badgeColor = 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300';
+                        shortType = 'Prest';
+                        detailText = `👤 ${op.person}`;
+                    } else if (op.type === 'Deuda') {
+                        badgeColor = 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300';
+                        shortType = 'Deuda';
+                        detailText = `👤 ${op.person}`;
+                    } else if (op.type === 'Abono') {
+                        badgeColor = 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300';
+                        shortType = 'Abono';
+                        detailText = `👤 ${op.person}`;
+                    }
+                    
+                    tr.innerHTML = `
+                        <td class="py-2.5 px-3"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${shortType}</span></td>
+                        <td class="py-2.5 px-3 font-semibold text-xs">${op.currency}</td>
+                        <td class="py-2.5 px-3 text-xs">${op.qty.toLocaleString('en-US', {maximumFractionDigits: 2})}</td>
+                        <td class="py-2.5 px-3 text-xs text-gray-600 dark:text-gray-300">${detailText}</td>
+                        <td class="py-2.5 px-3 font-bold text-xs">${op.total.toLocaleString('en-US', {maximumFractionDigits: 2})}</td>
+                        <td class="py-2.5 px-2 text-center no-print">
+                            <button onclick="deleteOperation(${op.id})" class="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 font-bold text-sm px-1.5 py-0.5 rounded transition" title="Eliminar">🗑️</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            const cardsContainer = document.getElementById('inventoryCardsContainer');
+            cardsContainer.innerHTML = '';
+            currencies.forEach((cur, index) => {
+                const inv = inventory[cur] || { qty: 0, totalCost: 0, avgPrice: 0, boughtToday: 0, soldTodayQty: 0 };
+                const card = document.createElement('div');
+                
+                let spanClass = "col-span-2";
+                if (index === 0 || index === 1 || index === 8 || index === 9) {
+                    spanClass = "col-span-3";
+                }
+
+                card.className = `bg-white dark:bg-gray-900 p-3.5 rounded-2xl border dark:border-gray-800 shadow-sm cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 transition text-center group flex flex-col justify-center items-center h-20 ${spanClass}`;
+                card.onclick = () => openModal(cur);
+                card.innerHTML = `
+                    <div class="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider group-hover:text-indigo-500 transition">${cur}</div>
+                    <div class="text-base font-extrabold text-indigo-600 dark:text-indigo-400 mt-1">${inv.qty.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                `;
+                cardsContainer.appendChild(card);
+            });
+
+            let totalProfit = operations.reduce((acc, op) => acc + (op.profit || 0), 0);
+            let grandTotal = getAvailableCUP();
+
+            const profitDisplay = document.getElementById('totalProfitDisplay');
+            profitDisplay.innerText = `$ ${totalProfit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            if (totalProfit < 0) {
+                profitDisplay.className = "font-bold text-rose-600 dark:text-rose-400 text-sm";
+            } else {
+                profitDisplay.className = "font-bold text-emerald-600 dark:text-emerald-400 text-sm";
+            }
+
+            document.getElementById('grandTotalDisplay').innerText = `$ ${grandTotal.toLocaleString('en-US', {maximumFractionDigits: 0})}`;
+        }
+
+        function renderLoans() {
+            const container = document.getElementById('loansCardsContainer');
+            container.innerHTML = '';
+
+            const persons = Object.keys(loans);
+            if (persons.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-8 text-gray-400 text-xs">No hay préstamos ni deudas registradas.</div>`;
+                return;
+            }
+
+            persons.forEach(person => {
+                const curBalances = loans[person];
+                let balancesHTML = '';
+                
+                Object.keys(curBalances).forEach(cur => {
+                    const item = curBalances[cur];
+                    const amt = (typeof item === 'object' && item !== null) ? item.qty : item;
+                    if (amt === 0) return;
+                    const isDebt = amt < 0; 
+                    const colorClass = isDebt ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400';
+                    const labelText = isDebt ? 'Le debes:' : 'Te debe:';
+                    balancesHTML += `
+                        <div class="flex justify-between items-center text-xs py-1.5 border-b dark:border-gray-800/80 last:border-0">
+                            <span class="font-medium text-gray-600 dark:text-gray-400">${cur} (${labelText})</span>
+                            <span class="font-bold ${colorClass}">${Math.abs(amt).toLocaleString('en-US', {maximumFractionDigits: 2})}</span>
+                        </div>
+                    `;
+                });
+
+                const card = document.createElement('div');
+                card.className = 'bg-white dark:bg-gray-900 p-4 rounded-2xl border dark:border-gray-800 shadow-sm flex flex-col justify-between cursor-pointer hover:border-indigo-500 transition';
+                card.onclick = () => openPersonModal(person);
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-bold text-sm text-indigo-600 dark:text-indigo-400">👤 ${person}</h3>
+                            <span class="text-[10px] bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full text-gray-500 dark:text-gray-400 font-medium">Ver Detalles</span>
+                        </div>
+                        <div class="space-y-1">${balancesHTML}</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function openPersonModal(person) {
+            document.getElementById('personModalTitle').innerText = `👤 Perfil de: ${person}`;
+            const content = document.getElementById('personModalContent');
+            
+            const curBalances = loans[person] || {};
+            let balancesSummary = '';
+            
+            let suggestedCurrency = '';
+            let suggestedAmount = '';
+            let isFirstFound = false;
+
+            Object.keys(curBalances).forEach(cur => {
+                const item = curBalances[cur];
+                const amt = (typeof item === 'object' && item !== null) ? item.qty : item;
+                if (amt === 0) return;
+                
+                if (!isFirstFound) {
+                    suggestedCurrency = cur;
+                    suggestedAmount = Math.abs(amt);
+                    isFirstFound = true;
+                }
+
+                const status = amt > 0 ? 'Te debe' : 'Le debes';
+                balancesSummary += `<div class="flex justify-between text-xs font-semibold py-1.5 bg-gray-800/60 px-3 rounded-xl border border-gray-700/50"><span>${cur}: ${Math.abs(amt).toLocaleString()}</span><span class="text-indigo-400 font-medium">${status}</span></div>`;
+            });
+
+            const abonoCurrenciesOptions = [...currencies, 'CUP'].map(c => {
+                const isSelected = c === suggestedCurrency ? 'selected' : '';
+                return `<option value="${c}" ${isSelected} class="dark:bg-gray-900">${c}</option>`;
+            }).join('');
+
+            content.innerHTML = `
+                <div class="space-y-2">
+                    <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Balance Actual</h4>
+                    <div class="space-y-1.5">${balancesSummary}</div>
+                </div>
+                <div class="pt-3 border-t border-gray-800 space-y-3">
+                    <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Registrar Abono / Pago</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-400 mb-1">MONEDA</label>
+                            <select id="abonoCurrency" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-2 text-xs text-gray-200 focus:outline-none cursor-pointer">
+                                ${abonoCurrenciesOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-400 mb-1">CANTIDAD ABONADA</label>
+                            <input type="number" id="abonoQty" value="${suggestedAmount}" step="any" placeholder="0" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-2 text-xs text-gray-200 focus:outline-none">
+                        </div>
+                    </div>
+                    <button onclick="registerAbono('${person}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-lg">
+                        Registrar Abono
+                    </button>
+                </div>
+            `;
+            document.getElementById('personModal').classList.remove('hidden');
+            document.getElementById('personModal').classList.add('flex');
+        }
+
+        function registerAbono(person) {
+            const currency = document.getElementById('abonoCurrency').value;
+            const qty = parseFloat(document.getElementById('abonoQty').value);
+
+            if (isNaN(qty) || qty <= 0) {
+                showToast('Ingrese una cantidad válida.', 'error');
+                return;
+            }
+
+            let loanEntry = (loans[person] && loans[person][currency]) ? loans[person][currency] : { qty: 0, avgPrice: 0 };
+            let currentBalance = (typeof loanEntry === 'object' && loanEntry !== null) ? loanEntry.qty : loanEntry;
+            let loanAvgPrice = (typeof loanEntry === 'object' && loanEntry !== null) ? loanEntry.avgPrice : 0;
+
+            if (currentBalance < 0) {
+                if (currency === 'CUP') {
+                    const availableCUP = getAvailableCUP();
+                    if (availableCUP < qty) {
+                        showToast(`Monto insuficiente en CUP para abonar. Disponible: $ ${availableCUP.toLocaleString('en-US')}`, 'error');
+                        return;
+                    }
+                } else {
+                    let inv = inventory[currency] || { qty: 0 };
+                    if (inv.qty < qty) {
+                        showToast(`Saldo insuficiente de ${currency} para abonar. Disponible: ${inv.qty.toLocaleString('en-US')}`, 'error');
+                        return;
+                    }
+                }
+            }
+
+            let cashImpact = 0; 
+            if (loans[person] && loans[person][currency] !== undefined) {
+                let inv = inventory[currency];
+                if (currency !== 'CUP' && !inv) {
+                    inventory[currency] = { qty: 0, totalCost: 0, avgPrice: 0, boughtToday: 0, soldTodayQty: 0 };
+                    inv = inventory[currency];
+                }
+
+                if (currentBalance > 0) {
+                    let payQty = Math.min(qty, currentBalance);
+                    loanEntry.qty -= payQty;
+                    
+                    if (currency !== 'CUP' && inv) {
+                        inv.qty += payQty;
+                        inv.totalCost += payQty * loanAvgPrice;
+                        inv.avgPrice = inv.qty > 0 ? inv.totalCost / inv.qty : 0;
+                    }
+                    if (currency === 'CUP') cashImpact = payQty; 
+                } else {
+                    let absBal = Math.abs(currentBalance);
+                    let payQty = Math.min(qty, absBal);
+                    loanEntry.qty += payQty; 
+
+                    if (currency !== 'CUP' && inv) {
+                        inv.qty -= payQty;
+                        if (inv.qty < 0) inv.qty = 0;
+                        inv.totalCost = inv.qty * inv.avgPrice;
+                    }
+                    if (currency === 'CUP') cashImpact = -payQty; 
+                }
+                if (loanEntry.qty === 0) delete loans[person][currency];
+                if (Object.keys(loans[person]).length === 0) delete loans[person];
+            } else {
+                if (currency === 'CUP') cashImpact = qty; 
+            }
+
+            operations.unshift({
+                id: Date.now(),
+                type: 'Abono',
+                currency,
+                qty,
+                price: 0,
+                total: qty,
+                totalImpact: cashImpact,
+                profit: 0,
+                person: `${person} (Abono)`
+            });
+
+            saveData();
+            render();
+            renderLoans();
+            closePersonModal();
+            showToast('Abono registrado correctamente.', 'success');
+        }
+
+        function closePersonModal() {
+            document.getElementById('personModal').classList.remove('flex');
+            document.getElementById('personModal').classList.add('hidden');
+        }
+
+        function openModal(currency) {
+            const inv = inventory[currency] || { qty: 0, totalCost: 0, avgPrice: 0, boughtToday: 0, soldTodayQty: 0 };
+            let boughtTodayVal = inv.boughtToday || 0;
+            let soldTodayVal = inv.soldTodayQty || 0;
+            let profitCurrency = operations.filter(op => op.currency === currency).reduce((acc, op) => acc + (op.profit || 0), 0);
+            const displayAvgPrice = inv.qty > 0 ? `$ ${inv.avgPrice.toLocaleString('en-US', {maximumFractionDigits: 2})}` : '$ 0.00';
+
+            document.getElementById('modalTitle').innerText = `🚀 DETALLE: ${currency}`;
+            document.getElementById('modalContent').innerHTML = `
+                <div class="flex justify-between items-center py-2 border-b border-gray-800">
+                    <span class="text-gray-400 font-medium">Inventario Actual:</span>
+                    <span class="font-bold text-white">${inv.qty.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-800">
+                    <span class="text-gray-400 font-medium">Entrada Hoy:</span>
+                    <span class="font-bold text-blue-400">${boughtTodayVal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-800">
+                    <span class="text-gray-400 font-medium">Precio Medio Compra:</span>
+                    <span class="font-bold text-indigo-400">${displayAvgPrice}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-800">
+                    <span class="text-gray-400 font-medium">Total Vendido:</span>
+                    <span class="font-bold text-rose-400">${soldTodayVal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-gray-400 font-medium">Ganancia Generada:</span>
+                    <span class="font-bold text-emerald-400">$ ${profitCurrency.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+            `;
+            document.getElementById('detailModal').classList.remove('hidden');
+            document.getElementById('detailModal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('flex');
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        function openProfitModal() {
+            const profitContent = document.getElementById('profitModalContent');
+            profitContent.innerHTML = '';
+
+            const profitOps = operations.filter(op => (op.type === 'Venta' || op.type === 'Gasto') && op.profit !== 0);
+
+            if (profitOps.length === 0) {
+                profitContent.innerHTML = `<div class="text-center py-6 text-gray-400">No hay ventas ni gastos registrados que generen ganancias o pérdidas.</div>`;
+            } else {
+                profitOps.forEach(op => {
+                    let descText = '';
+                    let badgeClass = 'bg-emerald-950 text-emerald-400 border border-emerald-800/60';
+                    let sign = '+';
+
+                    if (op.type === 'Venta') {
+                        let avgPriceUsed = op.avgPriceUsed || 0;
+                        descText = `Venta de <b>${op.qty} ${op.currency}</b> a precio <b>${op.price}</b> (Costo medio: ${avgPriceUsed.toFixed(2)})`;
+                        if (op.profit < 0) {
+                            badgeClass = 'bg-rose-950 text-rose-400 border border-rose-800/60';
+                            sign = '';
+                        }
+                    } else if (op.type === 'Gasto') {
+                        badgeClass = 'bg-orange-950 text-orange-400 border border-orange-800/60';
+                        descText = `Gasto en <b>${op.currency}</b>`;
+                        sign = '';
+                    }
+
+                    profitContent.innerHTML += `
+                        <div class="flex justify-between items-center p-3 bg-gray-800/60 rounded-xl border border-gray-700/50">
+                            <div class="space-y-0.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${op.type}</span>
+                                <p class="text-xs text-gray-300 mt-1">${descText}</p>
+                            </div>
+                            <span class="font-bold text-sm ${op.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'} whitespace-nowrap">
+                                ${sign}$ ${op.profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </span>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('profitModal').classList.remove('hidden');
+            document.getElementById('profitModal').classList.add('flex');
+        }
+
+        function closeProfitModal() {
+            document.getElementById('profitModal').classList.remove('flex');
+            document.getElementById('profitModal').classList.add('hidden');
+        }
+
+        async function clearAllData() {
+            const confirmed = await showCustomConfirm(
+                "🚨 BORRAR TODO",
+                "¿ESTÁS SEGURO?<br><br>Se borrará el inventario, las operaciones, el capital y los préstamos de forma permanente.",
+                "Sí, borrar todo",
+                true
+            );
+
+            if (confirmed) {
+                operations = [];
+                initialCapital = 0;
+                inventory = {};
+                loans = {};
+                currencies.forEach(c => {
+                    inventory[c] = { qty: 0, totalCost: 0, avgPrice: 0, boughtToday: 0, soldTodayQty: 0 };
+                });
+                saveData();
+                document.getElementById('initialCapitalInput').value = '0';
+                render();
+                renderLoans();
+                showToast('Datos borrados exitosamente.', 'success');
+            }
+        }
+
+        async function exportShiftHTML() {
+            const confirmed = await showCustomConfirm(
+                "📄 EXPORTAR Y REINICIAR TURNO",
+                "¿Estás seguro de exportar y reiniciar el turno?<br><br>• Se limpiará la tabla de operaciones.<br>• Se reiniciará la ganancia a 0.<br>• Se reiniciarán las entradas de hoy y el total vendido a 0.<br>• El Total actual se convertirá en el nuevo Capital Inicial (INICIO).<br>• Las monedas con existencia y los préstamos/deudas se mantendrán intactos.",
+                "Sí, exportar y reiniciar",
+                false
+            );
+
+            if (!confirmed) return;
+
+            let operationsRows = '';
+            if (operations.length === 0) {
+                operationsRows = `<tr><td colspan="5" style="padding: 8px; text-align: center; color: #6b7280;">No hay operaciones registradas</td></tr>`;
+            } else {
+                operations.forEach(op => {
+                    let detailText = op.price ? `$ ${op.price.toLocaleString('en-US', {maximumFractionDigits: 2})}` : (op.person ? `👤 ${op.person}` : '-');
+                    operationsRows += `
+                        <tr>
+                            <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #111827; white-space: nowrap;">${op.type}</td>
+                            <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; color: #111827;">${op.currency}</td>
+                            <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #111827; white-space: nowrap;">${op.qty.toLocaleString('en-US', {maximumFractionDigits: 2})}</td>
+                            <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #111827; white-space: nowrap;">${detailText}</td>
+                            <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold; color: #111827; white-space: nowrap;">$ ${op.total.toLocaleString('en-US', {maximumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            let inventoryRows = '';
+            currencies.forEach(cur => {
+                const inv = inventory[cur];
+                if(inv && inv.qty > 0) {
+                    inventoryRows += `
+                        <tr>
+                            <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #111827;">${cur}</td>
+                            <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #111827; white-space: nowrap;">${inv.qty.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #111827; white-space: nowrap;">$ ${inv.avgPrice.toLocaleString('en-US', {maximumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            if (!inventoryRows) {
+                inventoryRows = `<tr><td colspan="3" style="padding: 8px; text-align: center; color: #6b7280;">Sin inventario activo</td></tr>`;
+            }
+
+            let loansRows = '';
+            const persons = Object.keys(loans);
+            if (persons.length === 0) {
+                loansRows = `<tr><td colspan="2" style="padding: 8px; text-align: center; color: #6b7280;">No hay deudas registradas</td></tr>`;
+            } else {
+                persons.forEach(person => {
+                    const balances = loans[person];
+                    let balanceStr = Object.keys(balances).filter(c => {
+                        const itm = balances[c];
+                        const val = (typeof itm === 'object' && itm !== null) ? itm.qty : itm;
+                        return val !== 0;
+                    }).map(c => {
+                        const itm = balances[c];
+                        const val = (typeof itm === 'object' && itm !== null) ? itm.qty : itm;
+                        return `${c}: ${Math.abs(val).toLocaleString('en-US')} (${val > 0 ? 'Te debe' : 'Le debes'})`;
+                    }).join('<br>');
+                    
+                    if (balanceStr) {
+                        loansRows += `
+                            <tr>
+                                <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #111827;">${person}</td>
+                                <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; color: #111827;">${balanceStr}</td>
+                            </tr>
+                        `;
+                    }
+                });
+            }
+
+            const todayDate = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const fileDate = new Date().toISOString().split('T')[0];
+
+            const fullHTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Turno - ${fileDate}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 10px 4px; }
+        .container { max-width: 800px; margin: 0 auto; background: #ffffff; padding: 14px 10px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #4f46e5; margin-bottom: 5px; font-size: 20px; }
+        .date { text-align: center; color: #4b5563; font-size: 13px; margin-bottom: 18px; }
+        h2 { border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; margin-top: 18px; font-size: 14px; color: #1f2937; }
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
+        th { background-color: #f3f4f6; color: #374151; padding: 6px 4px; text-align: left; font-size: 10px; white-space: nowrap; }
+        td { padding: 6px 4px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
+        @media (min-width: 640px) {
+            body { padding: 20px; }
+            .container { padding: 30px; }
+            table { font-size: 13px; }
+            th { padding: 10px 12px; font-size: 12px; }
+            td { padding: 8px 12px; font-size: 13px; }
+            h1 { font-size: 24px; }
+            h2 { font-size: 16px; }
+        }
+        @media print {
+            body { background: none; padding: 0; }
+            .container { box-shadow: none; border: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Reporte de Turno</h1>
+        <div class="date">Fecha: ${todayDate}</div>
+
+        <h2>Resumen de Caja</h2>
+        <div class="table-responsive">
+            <table>
+                <tr>
+                    <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb;">Capital Inicial:</td>
+                    <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold; white-space: nowrap;">$ ${initialCapital.toLocaleString('en-US')}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb;">Ganancia Total:</td>
+                    <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold; color: #059669; white-space: nowrap;">$ ${operations.reduce((acc, op) => acc + (op.profit || 0), 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb;">Total Disponible (CUP):</td>
+                    <td style="padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold; color: #e11d48; white-space: nowrap;">$ ${getAvailableCUP().toLocaleString('en-US', {maximumFractionDigits: 0})}</td>
+                </tr>
+            </table>
+        </div>
+
+        <h2>Historial de Operaciones</h2>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Operación</th>
+                        <th>Moneda</th>
+                        <th style="text-align: right;">Cantidad</th>
+                        <th style="text-align: center;">Precio / Detalle</th>
+                        <th style="text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${operationsRows}
+                </tbody>
+            </table>
+        </div>
+
+        <h2>Inventario Final</h2>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Moneda</th>
+                        <th style="text-align: right;">Cantidad Final</th>
+                        <th style="text-align: right;">Precio Medio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${inventoryRows}
+                </tbody>
+            </table>
+        </div>
+
+        <h2>Deudores / Préstamos</h2>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Persona</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${loansRows}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>`;
+
+            const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Reporte_Turno_${fileDate}.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+
+            initialCapital = getAvailableCUP();
+            document.getElementById('initialCapitalInput').value = initialCapital.toLocaleString('en-US');
+            operations = [];
+
+            currencies.forEach(c => {
+                if (inventory[c]) {
+                    inventory[c].boughtToday = 0;
+                    inventory[c].soldTodayQty = 0;
+                }
+            });
+
+            saveData();
+            render();
+            renderLoans();
+
+            showToast('Turno exportado y reiniciado correctamente.', 'success');
+        }
+    </script>
+</body>
+</html>

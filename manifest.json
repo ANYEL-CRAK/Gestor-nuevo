@@ -1,0 +1,21 @@
+{
+  "short_name": "GestorPagos",
+  "name": "Gestor de Pagos PRO",
+  "icons": [
+    {
+      "src": "https://app.kordata.mx/assets/icons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/7896/7896858.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "index.html",
+  "background_color": "#f1f5f9",
+  "display": "standalone",
+  "scope": "./",
+  "theme_color": "#2563eb"
+}
